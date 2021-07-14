@@ -14,7 +14,7 @@ items_list = [key for key in store_dict.keys()]
 # print(items_list)
 
 timeout = time.time() + 5
-five_min = time.time() + 60*5  # 5minutes
+five_min = time.time() + 60*5  # 5 minutes
 
 while True:
     cookie_position.click()
