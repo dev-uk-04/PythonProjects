@@ -63,6 +63,7 @@ def generate_extract(extract_data, result_file):
     try:
         with open(f'data/{result_file}', 'w+', newline='', encoding="utf-8") as csvfile:
             obj = csv.writer(csvfile)
+            logging.info(f'Saving data in {result_file}')
             # Write Headers
             obj.writerow(extract_data[0])
             # Write table records
