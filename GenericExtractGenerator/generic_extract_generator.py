@@ -152,4 +152,4 @@ if __name__ == '__main__':
         email_cc = config_parameters['email_cc']
         subject = config_parameters['subject'] + f' - {current_date}'
         email_body = config_parameters['email_body']
-        # send_email(EMAIL_FROM, [email_to], subject, email_body, extract_name)
+        send_email(EMAIL_FROM, [email_to], subject, email_body, extract_name)
