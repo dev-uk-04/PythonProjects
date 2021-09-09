@@ -1,3 +1,7 @@
+"""
+This program can be used to extract the data from database and send it over email.
+"""
+
 import datetime
 import time
 import sys
@@ -17,11 +21,13 @@ logging.basicConfig(level=logging.INFO, filename='generic_extract_generator.log'
                     format='%(asctime)s | %(levelname)s | %(message)s')
 
 
-# Read configuration file
 def read_config(config_name):
+    """
+    Read extract configuration file
+    """
     parameters = {}
     try:
-        with open(f'config/{config_name}') as file:
+        with open(f'config/{config_name}', encoding="utf-8") as file:
             for line in file:
                 fields = line.split(':')
                 param = fields[0].strip()
@@ -30,51 +36,59 @@ def read_config(config_name):
             return parameters  # Return configuration file data in JSON format
     except FileNotFoundError as err:
         logging.error(err)
-        raise SystemExit(f"{err}")
+        raise SystemExit(err) from err
 
 
-# Fetch data from database
 def fetch_data(sql_file):
-    global connection
+    """
+    Fetch data from database based on the sql file specified in configuration
+    """
     try:
-        with open(f'sql/{sql_file}') as file:
+        with open(f'sql/{sql_file}', encoding="utf-8") as file:
             sql_query = file.read()
     except FileNotFoundError as err:
         logging.error(err)
-        raise SystemExit(f'{err}')
+        raise SystemExit(err) from err
     else:
         try:
             connection = sqlite3.connect(DATABASE)
-        except ConnectionError as err:
-            logging.error(f'Could not establish connection to database')
-            raise SystemExit(f"{err}")
-        else:
             cursor = connection.cursor()
             cursor.execute(sql_query)
-            headers = [column[0] for column in cursor.description]  # Set headers for the file using the first row
+            # Set headers for the file using the first row
+            headers = [column[0] for column in cursor.description]
             records = cursor.fetchall()  # Fetch table records
             return [headers] + [records]  # Return Headers and records as list of list
+        except ConnectionError as err:
+            logging.error('Could not establish connection to database')
+            raise SystemExit(err) from err
         finally:
+            # noinspection PyUnboundLocalVariable
             connection.close()
 
 
-# Generate an extract in csv format
 def generate_extract(extract_data, result_file):
+    """
+    Generate an extract in csv format
+    """
     try:
         with open(f'data/{result_file}', 'w+', newline='', encoding="utf-8") as csvfile:
             obj = csv.writer(csvfile)
-            logging.info(f'Saving data in {result_file}')
+            logging.info('Saving data in %s', result_file)
             # Write Headers
             obj.writerow(extract_data[0])
             # Write table records
             obj.writerows(extract_data[1])
     except Exception as err:
         logging.error(err)
-        raise SystemExit(f'{result_file} could not be generated {err}')
+        raise SystemExit(f'{result_file} could not be generated {err}') from err
 
 
-# send email with extract
-def send_email(send_from, send_to, sub, body, attachment, server="mailhost"):
+def send_email(send_from, send_to, sub, body, attachment):
+    """
+    send email with extract as an attachment. the recipient, subject details
+    are coming from configuration(.cfg) file.
+    """
+    server = "mailhost"
     msg = MIMEMultipart()
     msg['Subject'] = sub
     msg['From'] = send_from
@@ -96,7 +110,7 @@ def send_email(send_from, send_to, sub, body, attachment, server="mailhost"):
             part.set_payload(attached_file.read())
     except FileNotFoundError as err:
         logging.error(err)
-        raise SystemExit(f'{attachment} does not exist.')
+        raise SystemExit(f'{attachment} does not exist.') from err
 
     # Encode file in ASCII characters to send by email
     encoders.encode_base64(part)
@@ -110,10 +124,10 @@ def send_email(send_from, send_to, sub, body, attachment, server="mailhost"):
     msg.attach(part)
 
     smtp = smtplib.SMTP(server)
-    logging.info(f'Sending email to {send_to}')
+    logging.info('Sending email to %s', send_to)
     smtp.sendmail(send_from, send_to, msg.as_string())
     smtp.quit()
-    logging.info(f'{attachment} has been sent successfully.')
+    logging.info('%s has been sent successfully.', attachment)
 
 
 if __name__ == '__main__':
@@ -121,20 +135,21 @@ if __name__ == '__main__':
         config = sys.argv[1]  # Read first parameter from the command line
     except IndexError as error:
         logging.error(error)
-        raise SystemExit(f"Usage: {sys.argv[0]} <Configuration File E.g. customer_extract.cfg>")
+        raise SystemExit(f'''Usage: {sys.argv[0]} <Configuration File E.g. customer_extract.cfg>'''
+                         ) from error
     else:
-        logging.info(f'Reading configuration file {config}')
+        logging.info('Reading configuration file %s', config)
         config_parameters = read_config(config)
-        logging.info(f'Fetching data from database.')
+        logging.info('Fetching data from database.')
         data_list = fetch_data(config_parameters['sqlfile'])
         current_date = datetime.datetime.now().strftime('%Y%m%d')
         extract_name = config_parameters['extractname'].replace('.csv', f'_{current_date}.csv')
         generate_extract(data_list, extract_name)
         time.sleep(5)
-        logging.info(f'Generated {extract_name}')
-        email_from = "tech@abc.com"
+        logging.info('Generated %s', extract_name)
+        EMAIL_FROM = "tech@abc.com"
         email_to = config_parameters['email_to']
         email_cc = config_parameters['email_cc']
         subject = config_parameters['subject'] + f' - {current_date}'
         email_body = config_parameters['email_body']
-        send_email(email_from, [email_to], subject, email_body, extract_name)
+        # send_email(EMAIL_FROM, [email_to], subject, email_body, extract_name)
